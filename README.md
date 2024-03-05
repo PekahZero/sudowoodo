@@ -12,6 +12,7 @@ Sudowoodo is a data integration framework based on contrastive representation le
 * NVIDIA Apex (fp16 training)
 
 Install required packages
+
 ```
 pip install -r requirements.txt
 git clone https://github.com/NVIDIA/apex.git
@@ -20,11 +21,12 @@ pip install -v --disable-pip-version-check --no-cache-dir ./apex
 
 ## Data
 
-Please download the datasets from [this link](https://drive.google.com/file/d/1V-QN2nazSrhZONVC4JoFfcUqRKmTYL1z/view?usp=sharing) and create a folder named ``data`` to save it so as to directly use the below commands to reproduce the results. 
+Please download the datasets from [this link](https://drive.google.com/file/d/1V-QN2nazSrhZONVC4JoFfcUqRKmTYL1z/view?usp=sharing) and create a folder named ``data`` to save it so as to directly use the below commands to reproduce the results.
 
 ## Model Training
 
 To train the baseline model:
+
 ```
 CUDA_VISIBLE_DEVICES=0 python train_bt.py \
     --task_type em \
@@ -47,6 +49,7 @@ CUDA_VISIBLE_DEVICES=0 python train_bt.py \
 ```
 
 Parameters:
+
 * ``--task_type``: the type of the task (``em``, Entity Matching or ``cleaning``, Data Cleaning)
 * ``--task``: the taskname (e.g., DBLP-ACM, Abt-Buy; see ``data/em`` and ``data/cleaning``)
 * ``--logdir``: the path for TensorBoard logging (F1, recall, etc.)
@@ -67,6 +70,7 @@ To save/load the pre-trained checkpoint, use the flag ``--save_ckpt`` and ``--us
 We support two modes for blocking: evaluation mode and candidate generation mode.
 
 The evaluation mode pre-trains the model and compute the recalls and #candidates:
+
 ```
 CUDA_VISIBLE_DEVICES=0 python train_bt.py \
     --task_type em \
@@ -106,6 +110,7 @@ CUDA_VISIBLE_DEVICES=0 python blocking.py \
 ```
 
 Parameters:
+
 * ``--ckpt_path``: the path to the checkpoint obtained by setting ``--save_ckpt`` during training
 * ``--k``: the top-k nearest neighbor
 * ``--threshold`` (optional): the cosine similarity threshold (e.g., 0.6)
@@ -116,13 +121,14 @@ The model configurations (e.g., max_len, lm, projector) have to be the same as t
 
 Our framework also supports the data cleaning task. Please see ``cleaning_example_command.sh`` for reference. More details can be found in Section V of the paper. We provide four datasets in ``data/cleaning/`` for evaluation: beers, hospital, rayyan, and tax.
 
-
 ## Column type detection
 
 See ``column_type_detection/``.
 
 ## Citation
+
 If you are using the code in this repo, please cite the following in your work:
+
 ```
 @inproceedings{icde23sudowoodo,
   author    = {Runhui Wang and
@@ -136,8 +142,8 @@ If you are using the code in this repo, please cite the following in your work:
 
 ## Disclosure
 
-Embedded in, or bundled with, this product are open source software (OSS) components, datasets and other third party components identified below. The license terms respectively governing the datasets and third-party components continue to govern those portions, and you agree to those license terms, which, when applicable, specifically limit any distribution. You may receive a copy of, distribute and/or modify any open source code for the OSS component under the terms of their respective licenses. In the event of conflicts between Megagon Labs, Inc. Recruit Co., Ltd., license conditions and the Open Source Software license conditions, the Open Source Software conditions shall prevail with respect to the Open Source Software portions of the software. 
-You agree not to, and are not permitted to, distribute actual datasets used with the OSS components listed below. You agree and are limited to distribute only links to datasets from known sources by listing them in the datasets overview table below. You are permitted to distribute derived datasets of data sets from known sources by including links to original dataset source in the datasets overview table below. You agree that any right to modify datasets originating from parties other than Megagon Labs, Inc. are governed by the respective third party’s license conditions. 
+Embedded in, or bundled with, this product are open source software (OSS) components, datasets and other third party components identified below. The license terms respectively governing the datasets and third-party components continue to govern those portions, and you agree to those license terms, which, when applicable, specifically limit any distribution. You may receive a copy of, distribute and/or modify any open source code for the OSS component under the terms of their respective licenses. In the event of conflicts between Megagon Labs, Inc. Recruit Co., Ltd., license conditions and the Open Source Software license conditions, the Open Source Software conditions shall prevail with respect to the Open Source Software portions of the software.
+You agree not to, and are not permitted to, distribute actual datasets used with the OSS components listed below. You agree and are limited to distribute only links to datasets from known sources by listing them in the datasets overview table below. You are permitted to distribute derived datasets of data sets from known sources by including links to original dataset source in the datasets overview table below. You agree that any right to modify datasets originating from parties other than Megagon Labs, Inc. are governed by the respective third party’s license conditions.
 All OSS components and datasets are distributed WITHOUT ANY WARRANTY, without even implied warranty such as for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, and without any liability to or claim against any Megagon Labs, Inc. entity other than as explicitly documented in this README document. You agree to cease using any part of the provided materials if you do not agree with the terms or the lack of any warranty herein.
 While Megagon Labs, Inc., makes commercially reasonable efforts to ensure that citations in this document are complete and accurate, errors may occur. If you see any error or omission, please help us improve this document by sending information to contact_oss@megagon.ai.
 

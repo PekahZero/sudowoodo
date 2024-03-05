@@ -17,7 +17,7 @@ from .dataset import DMDataset
 from torch.utils import data
 from transformers import AdamW, get_linear_schedule_with_warmup
 from tensorboardX import SummaryWriter
-from apex import amp
+# from apex import amp
 
 
 def train_step(train_iter, model, optimizer, scheduler, hp):
@@ -47,11 +47,14 @@ def train_step(train_iter, model, optimizer, scheduler, hp):
 
         loss = criterion(prediction, y.to(model.device))
         # loss = criterion(prediction, y.float().to(model.device))
-        if hp.fp16:
-            with amp.scale_loss(loss, optimizer) as scaled_loss:
-                scaled_loss.backward()
-        else:
-            loss.backward()
+        # if hp.fp16:
+        #     with amp.scale_loss(loss, optimizer) as scaled_loss:
+        #         scaled_loss.backward()
+        # else:
+        #     loss.backward()
+        
+        loss.backward()
+        
         optimizer.step()
         scheduler.step()
         if i % 10 == 0: # monitoring
@@ -99,8 +102,10 @@ def train(trainset, validset, testset, run_tag, hp):
 
     model = model.cuda()
     optimizer = AdamW(model.parameters(), lr=hp.lr)
-    if hp.fp16:
-        model, optimizer = amp.initialize(model, optimizer, opt_level='O2')
+    
+    # if hp.fp16:
+    #     model, optimizer = amp.initialize(model, optimizer, opt_level='O2')
+    
     num_steps = (len(trainset) // hp.batch_size) * hp.n_epochs
     scheduler = get_linear_schedule_with_warmup(optimizer,
                                                 num_warmup_steps=0,
@@ -135,6 +140,9 @@ def train(trainset, validset, testset, run_tag, hp):
         writer.add_scalars(run_tag, scalars, epoch)
         for variable in ["dev_f1", "dev_p", "dev_r", "test_f1", "test_p", "test_r"]:
             mlflow.log_metric(variable, eval(variable))
-
+            
+        # 每个epoch进行Pytorch 缓存的清除
+        torch.cuda.empty_cache()
+    
 
     writer.close()

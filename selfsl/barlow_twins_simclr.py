@@ -21,7 +21,7 @@ from sklearn.cluster import KMeans
 from transformers import AutoModel
 from transformers import AdamW, get_linear_schedule_with_warmup
 from torch.utils import data
-from apex import amp
+# from apex import amp
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
 from .augment import Augmenter
@@ -40,7 +40,7 @@ def off_diagonal(x):
     assert n == m
     return x.flatten()[:-1].view(n - 1, n + 1)[:, 1:].flatten()
 
-
+# 自监督学习
 class BarlowTwinsSimCLR(nn.Module):
     # the encoder is bert+projector
     def __init__(self, hp, device='cuda', lm='roberta'):
@@ -294,7 +294,7 @@ def evaluate(model, iterator, threshold=None, ec_task=None, dump=False):
         return f1, p, r, best_th
 
 
-
+# 生成批次数据，使得相似的条目被分组在一起
 def create_batches(u_set, batch_size, n_ssl_epochs, num_clusters=50):
     """Generate batches such that similar entries are grouped together.
     """
@@ -325,12 +325,15 @@ def create_batches(u_set, batch_size, n_ssl_epochs, num_clusters=50):
     for _ in range(n_ssl_epochs):
         indices = []
         random.shuffle(clusters)
-
+        # 随机洗牌簇的顺序
+        
         for c in clusters:
             random.shuffle(c)
             indices += c
+        # 遍历每个簇，随机洗牌其中的索引
 
         batch = []
+        # 根据洗牌后的索引构建批次数据，并进行填充
         for i, idx in enumerate(indices):
             batch.append(u_set[i])
             if len(batch) == batch_size or i == N - 1:
@@ -338,6 +341,7 @@ def create_batches(u_set, batch_size, n_ssl_epochs, num_clusters=50):
                 batch.clear()
 
 
+# 单步执行 train_step
 def selfsl_step(train_nolabel_iter, train_iter, model, optimizer, scheduler, hp):
     """Perform a single training step
 
@@ -370,11 +374,13 @@ def selfsl_step(train_nolabel_iter, train_iter, model, optimizer, scheduler, hp)
             loss2 = model(1, yA, yB, [], da=hp.da, cutoff_ratio=hp.cutoff_ratio)
             loss = alpha * loss1 + (1 - alpha) * loss2
 
-        if hp.fp16:
-            with amp.scale_loss(loss, optimizer) as scaled_loss:
-                scaled_loss.backward()
-        else:
-            loss.backward()
+        # if hp.fp16:
+        #     with amp.scale_loss(loss, optimizer) as scaled_loss:
+        #         scaled_loss.backward()
+        # else:
+        #     loss.backward()
+        loss.backward()
+        
         optimizer.step()
         scheduler.step()
         if i % 10 == 0: # monitoring
@@ -409,11 +415,14 @@ def fine_tune_step(train_iter, model, optimizer, scheduler, hp):
 
         loss = criterion(prediction, y.to(model.device))
         # loss = criterion(prediction, y.float().to(model.device))
-        if hp.fp16:
-            with amp.scale_loss(loss, optimizer) as scaled_loss:
-                scaled_loss.backward()
-        else:
-            loss.backward()
+        # if hp.fp16:
+        #     with amp.scale_loss(loss, optimizer) as scaled_loss:
+        #         scaled_loss.backward()
+        # else:
+        #     loss.backward()
+        
+        loss.backward()
+        
         optimizer.step()
         scheduler.step()
         if i % 10 == 0: # monitoring
@@ -435,15 +444,24 @@ def train(trainset_nolabel, trainset, validset, testset, run_tag, hp):
     Returns:
         None
     """
+    
+    # 数据准备
     padder = trainset.pad
     # create the DataLoaders
+    
+    
+    # 是否使用聚类：
+    # 不使用聚类
     if not hp.clustering:
+        # 用于无标签数据的数据加载器
         train_nolabel_iter = data.DataLoader(dataset=trainset_nolabel,
                                              batch_size=hp.batch_size,
                                              shuffle=True,
                                              num_workers=0,
                                              collate_fn=trainset_nolabel.pad)
+    # 使用聚类----------------------------------------------------------------------------
     else:
+        # 根据超参数创建批次
         train_nolabel_iter = create_batches(trainset_nolabel,
                                             hp.batch_size,
                                             hp.n_ssl_epochs,
@@ -466,6 +484,7 @@ def train(trainset_nolabel, trainset, validset, testset, run_tag, hp):
                                  collate_fn=testset.pad)
 
     # if all_pairs.txt is avaialble
+     # 如果all_pairs.txt可用
     all_pairs_path = 'data/%s/%s/all_pairs.txt' % (hp.task_type, hp.task)
     if os.path.exists(all_pairs_path):
         all_pair_set = DMDataset(all_pairs_path,
@@ -481,23 +500,29 @@ def train(trainset_nolabel, trainset, validset, testset, run_tag, hp):
     else:
         all_pairs_iter = None
 
+    # 初始化模型、优化器和LR调度器
     # initialize model, optimizer, and LR scheduler
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     # barlow twins
     model = BarlowTwinsSimCLR(hp, device=device, lm=hp.lm)
 
-    model = model.cuda()
+    # model = model.cuda() # # 将模型移动到GPU
+    model = model.cuda(device=device)
+    
     optimizer = AdamW(model.parameters(), lr=hp.lr)
-    if hp.fp16:
-        opt_level = 'O2' if hp.ssl_method == 'combined' else 'O2'
-        model, optimizer = amp.initialize(model, optimizer, opt_level=opt_level)
+    # if hp.fp16:
+    #     opt_level = 'O2' if hp.ssl_method == 'combined' else 'O2'
+    #     model, optimizer = amp.initialize(model, optimizer, opt_level=opt_level)
 
     # number of steps
+    # 步数
     num_ssl_epochs = hp.n_ssl_epochs
     num_ssl_steps = len(trainset_nolabel) // hp.batch_size * num_ssl_epochs
+    
     num_finetune_steps = len(trainset) // (hp.batch_size // 2) * (hp.n_epochs - num_ssl_epochs)
     if num_finetune_steps < 0:
         num_finetune_steps = 0
+        
     scheduler = get_linear_schedule_with_warmup(optimizer,
                                                 num_warmup_steps=0,
                                                 num_training_steps=num_ssl_steps+num_finetune_steps)
@@ -507,6 +532,7 @@ def train(trainset_nolabel, trainset, validset, testset, run_tag, hp):
     start_epoch = 1
 
     # load checkpoint if saved
+    # 加载模型------------------------------------------------------
     if hp.use_saved_ckpt:
         ckpt_path = os.path.join(hp.logdir, hp.task, 'ssl.pt')
         # config_path = os.path.join(hp.logdir, hp.task, 'config.json')
@@ -519,6 +545,7 @@ def train(trainset_nolabel, trainset, validset, testset, run_tag, hp):
     best_dev_f1 = best_test_f1 = 0.0
     for epoch in range(start_epoch, hp.n_epochs+1):
         # bootstrap the training set
+        # bootstrap训练集-----------------------------------------------------
         # if epoch == num_ssl_epochs + 1 and hp.task_type in ['em', 'cleaning']:
         if epoch == num_ssl_epochs + 1 and hp.task_type in ['em'] and (hp.bootstrap or hp.zero):
             if hp.task_type == 'em':
@@ -543,14 +570,16 @@ def train(trainset_nolabel, trainset, validset, testset, run_tag, hp):
                                          num_workers=0,
                                          collate_fn=padder)
 
-        # train
+        # train-------------------------------------------------------------------------
         print(f"epoch {epoch}")
         model.train()
+        # pre-train ------------------------------------
         if epoch <= num_ssl_epochs:
             selfsl_step(train_nolabel_iter, train_iter, model, optimizer, scheduler, hp)
+            
             if hp.blocking:
                 recall, new_size = evaluate_blocking(model, hp)
-                # logging
+            # logging blocking--------------------
                 if isinstance(recall, list):
                     scalars = {}
                     for i in range(len(recall)):
@@ -566,6 +595,8 @@ def train(trainset_nolabel, trainset, validset, testset, run_tag, hp):
                 # for variable in ["new_size", "recall"]:
                 #     mlflow.log_metric(variable, eval(variable))
                 print(f"epoch {epoch}: recall={recall}, num_candidates={new_size}")
+                
+        # 微调------------------
         else:
             fine_tune_step(train_iter, model, optimizer, scheduler, hp)
 
@@ -619,6 +650,7 @@ def train(trainset_nolabel, trainset, validset, testset, run_tag, hp):
                     mlflow.log_metric(variable, eval(variable))
             writer.add_scalars(run_tag, scalars, epoch)
 
+        # 保存checkpoint--------------------------------------
         # saving checkpoint at the last ssl step
         if hp.save_ckpt and epoch == num_ssl_epochs:
             # create the directory if not exist
@@ -635,8 +667,13 @@ def train(trainset_nolabel, trainset, validset, testset, run_tag, hp):
                     'epoch': epoch}
             torch.save(ckpt, ckpt_path)
 
+        # -------------------------------------------------------
         # check if learning rate drops to 0
         if scheduler.get_last_lr()[0] < 1e-9:
             break
+        
+        # 清除缓存
+        # torch.cuda.empty_cache() 
+        
 
     writer.close()

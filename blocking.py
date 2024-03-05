@@ -11,7 +11,7 @@ from selfsl.bt_dataset import BTDataset
 from selfsl.barlow_twins_simclr import BarlowTwinsSimCLR
 from selfsl.block import *
 from torch.utils import data
-from apex import amp
+# from apex import amp
 from sklearn.metrics import recall_score
 from tqdm import tqdm
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -30,8 +30,8 @@ def load_model(hp):
         model.load_state_dict(saved_state['model'])
 
     model = model.to(device)
-    if hp.fp16 and 'cuda' in device:
-        model = amp.initialize(model, opt_level='O2')
+    # if hp.fp16 and 'cuda' in device:
+    #     model = amp.initialize(model, opt_level='O2')
 
     return model
 
@@ -41,13 +41,23 @@ def tfidf_blocking(pathA, pathB, K=10):
     tableA = []
     tableB = []
 
-    reader = csv.DictReader(open(pathA))
-    for row in reader:
-        tableA.append(' '.join(row.values()))
+    # reader = csv.DictReader(open(pathA))
+    # for row in reader:
+    #     tableA.append(' '.join(row.values()))
 
-    reader = csv.DictReader(open(pathB))
-    for row in reader:
-        tableB.append(' '.join(row.values()))
+    # reader = csv.DictReader(open(pathB))
+    # for row in reader:
+    #     tableB.append(' '.join(row.values()))
+        
+    # 读取txt文件A并将每行的值添加到tableA中
+    with open(pathA, 'r') as file:
+        lines = file.readlines()
+        tableA = [' '.join(line.strip().split()) for line in lines]
+
+    # 读取txt文件B并将每行的值添加到tableB中
+    with open(pathB, 'r') as file:
+        lines = file.readlines()
+        tableB = [' '.join(line.strip().split()) for line in lines]
 
     corpus = tableA + tableB
     vectorizer = TfidfVectorizer().fit(corpus)
@@ -90,10 +100,12 @@ if __name__ == '__main__':
     left_path = os.path.join(path, 'tableA.txt')
     right_path = os.path.join(path, 'tableB.txt')
 
-    if hp.tfidf:
+    if not hp.tfidf:
         # tfidf blocking
-        pairs = tfidf_blocking(left_path.replace('.txt', '.csv'),
-                               right_path.replace('.txt', '.csv'), K=hp.k)
+        # pairs = tfidf_blocking(left_path.replace('.txt', '.csv'),
+        #                        right_path.replace('.txt', '.csv'), K=hp.k)
+        pairs = tfidf_blocking(left_path,
+                               right_path, K=hp.k)
     else:
         # BT blocking
         left_dataset = BTDataset(left_path,
@@ -112,6 +124,11 @@ if __name__ == '__main__':
     # dump pairs
     import pickle
     pickle.dump(pairs, open('blocking_result.pkl', 'wb'))
+    # 将名为 pairs 的对象保存到名为 blocking_result.pkl 的文件
+    
+    with open('blocking_result.pkl', 'rb') as file:
+        pairs = pickle.load(file)
+        print(pairs)
 
     # ground_truth, total = read_ground_truth(path)
     # if hp.k:
